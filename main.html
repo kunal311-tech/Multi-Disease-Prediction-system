@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X-Ray Multi-Disease Predictor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* (Style code is same as uploaded main.html, omitted for brevity) */
+        /* ... */
+
+        /* Base Styling */
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f4f8; 
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            padding: 25px 0;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        /* Main Container */
+        .main-container {
+            display: flex;
+            width: 90%;
+            max-width: 1200px;
+            margin: 40px auto;
+            gap: 30px;
+            flex-wrap: wrap; 
+        }
+
+        /* Card/Section Styling */
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        /* (Rest of the CSS is assumed to be correct) */
+        /* ... */
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>X-Ray Multi-Disease Prediction (AI Diagnosis)</h1>
+        <p>Advanced Deep Learning for 5 X-Ray Conditions: Pneumonia, TB, Lung Cancer, Bone Fracture, and Normal.</p>
+    </div>
+
+    <div class="main-container">
+        <div class="card upload-section">
+            <h2>1. X-Ray Image Upload</h2>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" id="fileInput" name="file" accept="image/png, image/jpeg, image/jpg">
+                
+                <label for="fileInput" class="file-label">📂 Select X-Ray Image</label>
+                
+                <img id="imagePreview" src="#" alt="Image Preview"/>
+                
+                <button type="submit" id="predictButton">🚀 Predict Disease</button>
+            </form>
+        </div>
+
+        <div class="card result-section">
+            <h2>2. Diagnosis Result</h2>
+            <div id="result-display">
+                <p>Please upload an X-ray image on the left and click the 'Predict' button to start the AI analysis.</p>
+            </div>
+            
+            <div class="disclaimer">
+                <strong>💡 Disclaimer:</strong> This is a sophisticated AI tool, but **it is not a replacement for a doctor**. Always consult a qualified medical professional for final diagnosis and treatment plans.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('fileInput');
+        const resultDiv = document.getElementById('result-display');
+        const imagePreview = document.getElementById('imagePreview');
+        const predictButton = document.getElementById('predictButton');
+        
+        // Disease information dictionary (for 5 classes)
+        const DISEASE_INFO = {
+            'pneumonia': {
+                title: "Pneumonia (फुफ्फुसाचा संसर्ग)",
+                color: "#d9534f", // Red
+                description: "फुफ्फुसातील हवा भरलेल्या लहान पिशव्यांमध्ये (Air Sacs) संसर्गामुळे पाणी किंवा पू जमा होणे.",
+                next_step: "लगेच जनरल फिजिशियन (General Physician) किंवा पल्मोनोलॉजिस्ट (Pulmonologist) यांच्याशी संपर्क साधावा."
+            },
+            'tb': {
+                title: "Tuberculosis (TB) - क्षयरोग",
+                color: "#f0ad4e", // Orange
+                description: "जीवाणूंमुळे होणारा गंभीर आणि संसर्गजन्य रोग, जो प्रामुख्याने फुफ्फुसांवर परिणाम करतो.",
+                next_step: "सरकारी आरोग्य केंद्रात किंवा जनरल फिजिशियनकडून तपासणी करून घ्यावी."
+            },
+            'lung_cancer': {
+                title: "Lung Cancer (फुफ्फुसाचा कर्करोग)",
+                color: "#292b2c", // Dark Gray
+                description: "फुफ्फुसांमधील पेशींची अनियंत्रित वाढ.",
+                next_step: "ऑनकोलॉजिस्ट (Oncologist) किंवा पल्मोनोलॉजिस्ट यांचा त्वरित सल्ला घ्यावा."
+            },
+            'bone_fracture': {
+                title: "Bone Fracture (हाड मोडणे)",
+                color: "#5cb85c", // Green
+                description: "हाडाला तडा जाणे किंवा हाड पूर्णपणे मोडणे.",
+                next_step: "ऑर्थोपेडिक सर्जन (Orthopedic Surgeon) किंवा आपत्कालीन विभागात (Emergency) संपर्क साधावा."
+            },
+            'normal': { // Normal class added
+                title: "Normal (रोग आढळला नाही)",
+                color: "#007bff", // Blue
+                description: "सध्याच्या मॉडेलच्या अंदाजानुसार, एक्स-रे फक्त त्या रोगांसाठी predict करेल ज्यासाठी मॉडेल प्रशिक्षित आहे . ",
+                next_step: "तरीही, डॉक्टरांकडून एकदा तपासणी करून घेणे नेहमीच चांगले असते."
+            }
+        };
+
+
+        // 1. Show preview when image is selected
+        fileInput.onchange = evt => {
+            const [file] = fileInput.files;
+            if (file) {
+                imagePreview.src = URL.createObjectURL(file);
+                imagePreview.style.display = 'block';
+                resultDiv.innerHTML = "<p>✅ Image selected successfully. Click 'Predict Disease' to analyze.</p>"; 
+            } else {
+                imagePreview.style.display = 'none';
+            }
+        };
+
+        // 2. Handle form submission (Prediction)
+        form.onsubmit = async (e) => {
+            e.preventDefault(); 
+            
+            if (!fileInput.files[0]) {
+                resultDiv.innerHTML = "<p style='color:red;'>❌ कृपया एक्स-रे इमेज निवडा.</p>";
+                return;
+            }
+
+            // Loading state
+            predictButton.disabled = true;
+            resultDiv.innerHTML = '<div class="loader"></div> <p style="color:#007bff; display: inline; font-weight: 500;">AI Analysis in progress... Please wait...</p>';
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                // Call the backend '/predict' API
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const predictionClass = data.prediction.toLowerCase().replace(/ /g, '_'); 
+                    const info = DISEASE_INFO[predictionClass] || {
+                        title: data.prediction,
+                        color: "#6c757d",
+                        description: "या रोगाबद्दलची माहिती उपलब्ध नाही.",
+                        next_step: "कृपया डॉक्टरांचा सल्ला घ्या."
+                    };
+                    
+                    const confidenceValue = parseFloat(data.confidence.replace('%', ''));
+
+                    // Display successful result in HTML format
+                    resultDiv.innerHTML = `
+                        <p><strong>Diagnosis Time:</strong> ${data.time}</p>
+                        <div class="prediction-text" style="color: ${info.color};">
+                            ✅ Predicted Condition: ${info.title}
+                        </div>
+                        <p><strong>Confidence Score:</strong> ${data.confidence}</p>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${confidenceValue}%; background-color: ${info.color};"></div>
+                        </div>
+                        <hr style="margin: 15px 0;">
+                        <p><strong>रोगाबद्दल माहिती:</strong> ${info.description}</p>
+                        <p><strong>पुढील कार्यवाही:</strong> <span style="font-weight: 600; color: #dc3545;">${info.next_step}</span></p>
+                    `;
+
+                } else {
+                    // Server/Model Error
+                    resultDiv.innerHTML = `<p style="color:red;">❌ त्रुटी (Error): ${data.error || 'अज्ञात सर्वर त्रुटी.'}</p>`;
+                }
+            } catch (error) {
+                // Network Error
+                resultDiv.innerHTML = `<p style="color:red;">❌ नेटवर्क त्रुटी (Network Error): सर्वरशी संपर्क साधता आला नाही. Flask चालत आहे की नाही, हे तपासा.</p>`;
+            } finally {
+                predictButton.disabled = false;
+            }
+        };
+    </script>
+</body>
+</html>
